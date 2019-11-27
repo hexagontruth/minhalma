@@ -6,7 +6,9 @@ A single-file Sternhalma (a.k.a. Star Halma a.k.a. "Chinese Checkers") game. Ada
 
 The colored rectangles at the top can be clicked during a game to toggle players between human ("H") and AI control. If a human player is converted to AI during its move, the computer immediately takes the turn.
 
-The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. Additional in-game options, &c., can be accessed via the keyboard. Further customization regarding e.g. board size, etc., can be affected through URL parameters.
+The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. The game pauses after every individual player wins. Play is resumed by pressing space, or by clicking anywhere on the board or page background. This continues until the penultimate player "wins," at which point the game is over. A new game can then be started by typing `N` or by clicking the page.
+
+Additional in-game options can be set via the keyboard. Further customization regarding e.g. board size, AI settings, &c., can be affected through URL parameters.
 
 ## Keyboard shortcuts
 
@@ -14,7 +16,7 @@ The game is principally played by clicking first on a unit and then on the cell 
 - `N`: This will abruptly end the previous game and start a new one. Too bad.
 - `R`: Shows ranking of players who have already won the current game.
 - `S`: Return to default status message, which is fairly useless but tells you how many players are still playing.
-- `?|H`: Displays a brief summary of keyboard commands. This seemed like a better idea when there were fewer of them.
+- `?|H`: Shows README in a modal when it is available in the same directory, otherwise displays a brief summary of keyboard commands.
 - `U`: Undo. Only allowed on human move. Returns game to state before same player's last move, with the move counter, &c. reset to that state.
 - `<ArrowLeft>`: Go back one move in game history.
 - `<ArrowRight>`: Go forward one move in game history. If this brings the game to the latest position, play resumes or, again, is placed in a paused state.
@@ -22,6 +24,7 @@ The game is principally played by clicking first on a unit and then on the cell 
 - `<PgUp|ArrowUp>`: Return to latest position in game history.
 - `C`: Download current game as JSON file. The columns represent player direction (e.g. number counter-clockwise from bottom), source cubic (see below), target cubic, and a flag indicating whether the player won on that move.
 - `D`: Download full history of games played in the present session (i.e. since page was last reloaded).
+- `[1-9]`: Create new config with board size as given number and pushes to URL history. Settings do not take effect until next game is started. (This is presently the only URL parameter option available from the keyboard.)
 
 ## Parameters
 
@@ -33,21 +36,27 @@ The board size, &c. can be modified by appending parameters to the page URL in y
     - 0: Disabled
     - 1: Human
     - 2: Computer
-- `depth`: Max search depth. Default is 7, for one full rotation with all players.
+- `depth`: AI parameter for max search depth. Default is 7, for one full rotation with all players.
+- `skip`: AI parameter representing score differential threshold at which a move will be discarded without further exploration. A lower number substantially increases speed on large boards. Numbers above ~5 are effectively meaningless. (Default is 1.)
+- `bonus`: AI parameter representing move score incentive for farthest back unit. (Default is 2.)
 
 Some examples:
 
 - `?size=2&units=6&players=1002`: A two-player game, human v. AI, where each side has six units.
 - `?size=1&units=2`: A three-player game on a ridiculously small board where each player has two pieces. By going first you will lose.
 
-To start a differently-configured game in the same session, create a `Config` instance in the browser console, passing the parameter you wish to set directly &mdash; e.g., `new Congig({size: 4})`. This will be saved to `Config.instance` and used for the next new game.
+To start a differently-configured game in the same session, create a `Config` instance in the browser console, passing the parameter you wish to set directly &mdash; e.g.:
+
+`new Config({size: 4})`
+
+This will be saved to `Config.instance` and used for the next new game.
 
 ## Some additional information
 
-The cells use a somewhat-overbuilt coordinate system based on the "cubic" model described by Amit Patel in his excellent [Hexagonal Grids](https://www.redblobgames.com/grids/hexagons/) article. The gist is that each coordinate is described by three values that I usually label `u`, `v`, and `w`, which sum to 0 and can be thought of as defining a plane intersecting a cube about the origin in such a way as to express a hexagonal cross section. (See also the Wikipedia article on [permutohedra](https://en.wikipedia.org/wiki/Permutohedron).) These coordinates are particularly helpful in a game like this where true sixfold symmetry in e.g. calculating move cost &c. is desirable.
+The cells use a somewhat-overbuilt coordinate system based on the "cubic" model described by Amit Patel in his excellent [Hexagonal Grids](https://www.redblobgames.com/grids/hexagons/) article. The gist is that each coordinate is described by three values that I usually label `u`, `v`, and `w`, which sum to 0 and can be thought of as defining a plane intersecting a cube in such a way as to express a hexagonal cross section. (See also the Wikipedia article on [permutohedra](https://en.wikipedia.org/wiki/Permutohedron) for a visualization of this.) These coordinates are particularly helpful in a game like this where true sixfold symmetry in e.g. calculating move cost &c. is desirable.
 
 I have implemented a slight variation on the "[Masters Rule](https://www.mastersofgames.com/rules/chinese-checkers-rules.htm)" to avoid spoiling (i.e., adversarial unit blocking one's goal triangle). In the original version, a player is allowed to treat any target cell in their triangle as open, and simply swap a unit there into their unit's last position. In the present version I have applied this only to immediate-neighbor moves, without hops. This was principally to simplify the move-generating algorithm, but to be honest I didn't actually try it the other way, and it might work fine. Who even knows. I am also not entirely sure how the rule is supposed to work when e.g. there are units blocking multiple cells in a hop path.
 
 ## Distribution
 
-This project was made possible in partnership with the Global Hexagonal Awareness Project, and is distributed under the Hexagonal Awareness License (see LICENSE.txt). FTVW.
+This project was made possible in partnership with the Global Hexagonal Awareness Project, and is distributed under the Hexagonal Awareness License (see source). FTVW.
