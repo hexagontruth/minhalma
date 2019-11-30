@@ -4,11 +4,9 @@ By Graham
 
 A single-file Sternhalma (a.k.a. Star Halma a.k.a. "Chinese Checkers") game. Adapted from a fairly underwhelming two-player version I wrote for a class project some years ago.
 
-The colored rectangles at the top can be clicked during a game to toggle players between human ("H") and AI control. If a human player is converted to AI during its move, the computer immediately takes the turn.
+The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. The game pauses after every individual player wins. Play is resumed by pressing space, or by clicking anywhere on the board or page background. This continues until the penultimate player "wins," at which point the game is over. A new game can then be started by typing `N` or by clicking the page. Board size and player status (human, computer, or disabled) can be set in the configuration modal, accessible by clicking the plus sign in the upper right. Players can also be toggled between human and computer control by clicking the colored rectangles at the top of the page during a game. If a human player is converted to AI during its turn, the computer immediately takes the turn.
 
-The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. The game pauses after every individual player wins. Play is resumed by pressing space, or by clicking anywhere on the board or page background. This continues until the penultimate player "wins," at which point the game is over. A new game can then be started by typing `N` or by clicking the page.
-
-Additional in-game options can be set via the keyboard. Further customization regarding e.g. board size, AI settings, &c., can be affected through URL parameters.
+Additional in-game options can be set via the keyboard, and — in a limited number of cases — via touch gesture. Further customization regarding number of units, AI settings, &c., can be affected through URL parameters.
 
 ## Keyboard shortcuts
 
@@ -16,7 +14,7 @@ Additional in-game options can be set via the keyboard. Further customization re
 - `N`: This will abruptly end the previous game and start a new one. Too bad.
 - `R`: Shows ranking of players who have already won the current game.
 - `S`: Return to default status message, which is fairly useless but tells you how many players are still playing.
-- `?|H`: Shows README in a modal when it is available in the same directory, otherwise displays a brief summary of keyboard commands.
+- `[+|h|?]`: Shows configuration modal and brief summary of important controls.
 - `U`: Undo. Only allowed on human move. Returns game to state before same player's last move, with the move counter, &c. reset to that state.
 - `<ArrowLeft>`: Go back one move in game history.
 - `<ArrowRight>`: Go forward one move in game history. If this brings the game to the latest position, play resumes or, again, is placed in a paused state.
@@ -24,6 +22,8 @@ Additional in-game options can be set via the keyboard. Further customization re
 - `<PgUp|ArrowUp>`: Return to latest position in game history.
 - `C`: Download current game as JSON file. The columns represent player direction (e.g. number counter-clockwise from bottom), source cubic (see below), target cubic, and a flag indicating whether the player won on that move.
 - `D`: Download full history of games played in the present session (i.e. since page was last reloaded).
+- `,`: Rotate board clockwise.
+- `.`: Rotate board counter-clockwise.
 - `[1-9]`: Create new config with board size as given number and pushes to URL history. Settings do not take effect until next game is started. (This is presently the only URL parameter option available from the keyboard.)
 
 ## Parameters
@@ -49,7 +49,7 @@ To start a differently-configured game in the same session, create a `Config` in
 
 `new Config({size: 4})`
 
-This will be saved to `Config.instance` and used for the next new game.
+This will be saved to `Config.instance` and used for the next new game. If the configured settings differ from the current ones, a new location will be pushed on to the page history (i.e., your browser URL bar will change.) This mechanism is also used when board size, &c. are set from the configuration modal.
 
 ## Some additional information
 
@@ -59,4 +59,4 @@ I have implemented a slight variation on the "[Masters Rule](https://www.masters
 
 ## Distribution
 
-This project was made possible in partnership with the Global Hexagonal Awareness Project, and is distributed under the Hexagonal Awareness License (see source). FTVW.
+This project was made possible in partnership with the Global Hexagonal Awareness Project, and is distributed under the Hexagonal Awareness License (see source).
