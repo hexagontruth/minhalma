@@ -134,7 +134,7 @@ svg.paused, svg.paused * {
   opacity: 1;
 }
 
-.board polygon.last-move { opacity: 0.75; }
+.board polygon.last-move { opacity: 0.8; }
 
 .board polygon.clicked { opacity: 0.9; }
 
@@ -142,7 +142,7 @@ svg.paused, svg.paused * {
 
 .board polygon.highlight {
   cursor: pointer;
-  opacity: 0.67;
+  opacity: 0.6;
 }
 
 .modal.outer {
@@ -312,7 +312,7 @@ td .icon {
 // --- GLOBALS AND CONFIG ---
 
 const DEFAULT_SIZE = 3;
-const DEFAULT_SEARCH_DEPTH = 7;
+const DEFAULT_SEARCH_DEPTH = 6;
 const DEFAULT_SKIP_THRESHOLD = 1;
 const DEFAULT_LAST_UNIT_BONUS = 2
 
@@ -345,8 +345,8 @@ const Locale = {
   skip: (g) => `Skipping ${g.turn} due to lack of move`,
   victory: (g) => `${g.rank.slice(-1)[0]} comes in ${Locale.ord(g.rank.length)}!`,
   continue: 'Click or <space> to continue',
-  final: (g) => `Final ranking: ${g.rank.map((e) => e.shortName()).join(', ')}`,
-  ranking: (g) => `Current ranking: ${g.rank.map((e) => e.shortName()).join(', ')}`,
+  final: (g) => `Final ranking: ${g.rank.map((e) => e.shortName).join(', ')}, ${g.players[0].shortName}`,
+  ranking: (g) => `Current ranking: ${g.rank.map((e) => e.shortName).join(', ')}`,
   paused: '- Game paused -',
   inHistory: '<ArrowUp> to return to current position',
   ord: (n) => n + (['th', 'st', 'nd', 'rd'][n] || 'th')
@@ -455,13 +455,8 @@ class Game {
       this.pause();
     }
     else if (this.turn.victory) {
-      let winner = this.turn;
-      this.rank.push(winner);
       this.moves.slice(-1)[0][3] = true;
-      winner.prev.next = winner.next;
-      winner.next.prev = winner.prev;
-      this.turn = winner.prev;
-      this.players = this.players.filter((e) => e != winner);
+      this.turn = this.turn.prev;
       this.pause(
         Locale.victory,
         this.checkForCompletion() ? Locale.final : Locale.continue
@@ -472,7 +467,7 @@ class Game {
       if (this.checkValidMoves()) {
         this.board.setCurrentPlayer(this.turn);
         if (this.turn.computer) {
-          this.computeTurn();
+          this.computeMove();
         }
       }
     }
@@ -488,7 +483,7 @@ class Game {
   }
 
   // We put this in a separate function for when a human player is re-assigned mid-turn
-  computeTurn() {
+  computeMove() {
     if (this.state == 0)
       this.unpause();
     let move = this.node(this.turn, {}, 0, 0);
@@ -537,7 +532,29 @@ class Game {
   }
 
   move(source, target, fwd) {
+    if (!source) return; // Reversing through a skip
+    let player = source.unit.player;
+    if (!fwd && player.victory) // Reversing through a victory
+      this.rankPlayer(player, false);
     target.setUnit(source.unit, fwd);
+    if (player.victory)
+      this.rankPlayer(player, true);
+  }
+
+  rankPlayer(player, fwd) {
+    if (fwd) {
+      this.rank.push(player);
+      this.players = this.players.filter((e) => e != player);
+      player.prev.next = player.next;
+      player.next.prev = player.prev;
+    }
+    else {
+      this.rank = this.rank.filter((e) => e != player);
+      this.players.push(player);
+      this.players.sort((a, b) => a.dir - b.dir);
+      player.prev.next = player;
+      player.next.prev = player;
+    }
   }
 
   checkForCompletion() {
@@ -699,78 +716,90 @@ class Game {
 
   // Recursive AI decision node
   node(player, parent, depth, n) {
-    let node = {};
-    node.player = player;
-    node.parent = parent;
-    node.set = false;
+    let node = {h: null, delta: 0, player, parent, n};
     // Check for victory condition
     if (player.h <= this.config.h) {
-      node.h = -1e5 + depth;
+      node.h = [0, 0, 0, 0, 0, 0];
+      for (let p of this.players)
+        node.h[p.dir] = p == player ? -1e5 : p.h;
     }
     // Check for max depth
     else if (depth >= this.config.depth) {
-      node.h = 0;
+      node.h = [0, 0, 0, 0, 0, 0];
       for (let p of this.players)
-        node.h += this.turn == p ? p.h : -p.h;
+        node.h[p.dir] = p.h;
     }
     // Else recursively iterate over units, moves, players
     else {
-      // This is to avoid conditionally switching between < and >
-      let hCoef = player == this.turn ? 1 : -1;
-      node.h = 1e4 * hCoef;
-      let zeta = (parent.set ? parent.h : node.h) * hCoef;
+      node.rh = Infinity;
+      let zeta = parent.h ? this._reduceH(parent.h, player) : -Infinity;
 
-      // Iterate over units
-      let bestPlayerH = player.h;
-      let pruneFlag = false;
+      // Determine h deltas for moves
+      let bestDelta = Infinity;
       let unit = player.unitHead;
-      let units = [];
-      while ((unit = unit.next) && unit.next) units.push(unit);
-      for (let i = 0; i < units.length; i++) {
-        let unit = units[i];
+      let lastUnitH = unit.next.h;
+      let moves = [];
+      while ((unit = unit.next) && unit.next) {
+        let bonus = unit.h == lastUnitH ? this.config.bonus : 0;
         let source = unit.cell;
-        for (let target of this.getMoves(unit.cell)) {
-          target.setSubunit(unit);
+        for (let target of this.getMoves(source)) {
+          let delta = target.cubic.metric(player.goal) - unit.h - bonus;
+          let radius = target.cubic.metricFromOrigin();
+          if (delta < bestDelta) bestDelta = delta;
+          moves.push({delta, source, target});
+        }
+      }
+      // If there are no moves skip to next player at same depth
+      // Skip pruning by omitting the parent
+      if (moves.length == 0)
+        return this.node(player.next, {}, depth, ++this.n);
+      // Otherwise iterate over moves
+      for (let move of moves) {
+        if (move.delta > bestDelta + this.config.skip)
+          continue;
+        let unit = move.source.subunit;
+        let source = move.source;
+        let target = move.target;
+        target.setSubunit(unit);
 
-          // Skip if move is facially worse than given threshold
-          if (player.h < bestPlayerH + this.config.skip) {
-            // Get children
-            let child = this.node(player.next, node, depth + 1, ++n);
-            if (!i) child.h -= this.config.bonus;
-            n = child.n;
+        // Get child node
+        let child = this.node(player.next, node, depth + 1, ++this.n);
+        this.n = child.n;
+        let childRh;
+        childRh = this._reduceH(child.h, player);
+        // Check if best child node
+        // Ties are broken in favor of a) lower move delta, then b) lower distance from board center
+        // The latter condition is to discourage sojourning through the limbs of non-goal triangles, where units can become trapped
+        if (
+          childRh < node.rh ||
+          childRh == node.rh && (move.delta < node.delta ||
+          move.delta == node.delta && (move.radius < node.radius ||
+          move.radius == node.radius && (Math.random() * 4) >>> 1
+        ))) {
+          node.h = child.h;
+          node.rh = childRh;
+          node.delta = move.delta;
+          node.radius = move.radius;
+          node.child = child;
+          node.source = source;
+          node.target = target;
+        }
 
-            let _ch = child.h * hCoef;
-            let _nh = node.h * hCoef;
-            // Check if best child node
-            if (_ch < _nh) {
-              node.set = true;
-              node.h = child.h;
-              node.source = source;
-              node.target = target;
-            }
-
-            if (player.h < bestPlayerH) {
-              bestPlayerH = player.h;
-              // Tie breaker
-              if (_ch == _nh) {
-                node.set = true;
-                node.source = source;
-                node.target = target;
-              }
-            }
-
-            // Check for pruning
-            if (_nh > zeta)
-              pruneFlag = true;
-          }
-          source.setSubunit(unit);
-          if (pruneFlag) break;
-        }; // End of move iteration
-        if (pruneFlag) break;
-      }; // End of unit iteration
+        source.setSubunit(unit);
+        // Check for pruning
+        if (node.rh < zeta)
+          break;
+      }; // End of move iteration
     } // End node if
-    node.n = n; // This is presently only used for debugging
     return node;
+  }
+
+  _reduceH(h, player) {
+    let net = 0;
+    for (let i = 0; i < 6; i++) {
+      net += i == player.dir ? h[i] : -h[i];
+    }
+    return net;
   }
 }
 Game.history = [];
@@ -813,12 +842,12 @@ class Player {
     return this.h <= this.config.h;
   };
 
-  toString() {
-    return `Player ${this.dir}`;
+  get shortName() {
+    return 'P' + this.dir;
   }
 
-  shortName() {
-    return 'P' + this.dir;
+  toString() {
+    return `Player ${this.dir}`;
   }
 }
 
@@ -1009,7 +1038,7 @@ class Board {
     this.playerButtons[idx].classList.remove(oldClass);
     this.playerButtons[idx].classList.add(nextClass);
     if (this.game.turn == player && next == _COMPUTER && this.game.state != -1) {
-      this.game.computeTurn();
+      this.game.computeMove();
     }
   }
 
@@ -1411,6 +1440,10 @@ class Cubic extends Array {
     return (
       Math.abs(this[0] - cubic[0]) + Math.abs(this[1] - cubic[1]) + Math.abs(this[2] - cubic[2])
     ) / 2;
+  }
+
+  metricFromOrigin() {
+    return Math.abs(this[0]) + Math.abs(this[1]) + Math.abs(this[2]);
   }
 
   toString() { return `(${this.join(',')})`; }
