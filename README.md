@@ -1,5 +1,5 @@
 Minhalma
-========
+=========
 By Graham
 
 A single-file Sternhalma (a.k.a. Star Halma a.k.a. "Chinese Checkers") game. Adapted from a fairly underwhelming two-player version I wrote for a class project some years ago.
@@ -34,16 +34,16 @@ The board size, &c. can be modified by appending parameters to the page URL in y
 - `units`: Set number of units. Defaults to triangular fill `size * (size + 1) / 2` (e.g. 2 -> 3, 3 -> 6, 4 -> 10). Can be overfilled, but do not set to more than half the outer row width with all six players enabled, or units will be overwritten.
 - `players`: String indicating player types. Omitted trailing characters will leave those players disabled, while any characters > 6 will be ignored.
     - 0: Disabled
-    - 1: Human
-    - 2: Computer
-- `depth`: AI parameter for max search depth. Default is 7, for one full rotation with all players.
+    - 1: Computer
+    - 2: Human
+- `depth`: AI parameter for max search depth. Default is 6, for one full rotation with all players.
 - `skip`: AI parameter representing score differential threshold at which a move will be discarded without further exploration. A lower number substantially increases speed on large boards. Numbers above ~5 are effectively meaningless. (Default is 1.)
 - `bonus`: AI parameter representing move score incentive for farthest back unit. (Default is 2.)
 
 Some examples:
 
-- `?size=2&units=6&players=1002`: A two-player game, human v. AI, where each side has six units.
-- `?size=1&units=2`: A three-player game on a ridiculously small board where each player has two pieces. By going first you will lose.
+- `?size=2&units=6&players=2001`: A two-player game, human v. AI, where each side has six units.
+- `?size=1&units=2`: A six-player game on a ridiculously small board where each player has two pieces. By going first you will lose.
 
 To start a differently-configured game in the same session, create a `Config` instance in the browser console, passing the parameter you wish to set directly &mdash; e.g.:
 

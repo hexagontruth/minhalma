@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-Minhalma v0.2.0
+Minhalma v0.3.0
 
 Copyright (c) 2019, Graham Steele
 
@@ -99,18 +99,23 @@ html {
   cursor: pointer;
   opacity: 0.75;
 }
-.status div.disabled { opacity: 0.25; }
+
+.status div.disabled {
+  opacity: 0.25;
+  cursor: default;
+}
 
 .status div.active { opacity: 1; }
 
 .status div::before {
   text-align: center;
   font-size: 0.67rem;
-  font-weight: bold;
-  line-height: ;
+  font-weight: normal;
+  line-height: 1;
   color: #fff;
 }
 
+.status div.active:before { font-weight: bold; }
 .human::before { content: 'H'; }
 .computer::before { content: 'C'; }
 
@@ -316,9 +321,10 @@ const DEFAULT_SEARCH_DEPTH = 6;
 const DEFAULT_SKIP_THRESHOLD = 1;
 const DEFAULT_LAST_UNIT_BONUS = 2
 
+// These values are used in AI arithmetic - see game._reduceH()
 const _DISABLED = 0;
-const _HUMAN = 1;
-const _COMPUTER = 2;
+const _COMPUTER = 1;
+const _HUMAN = 2;
 const DEFAULT_PLAYERS = [
   _HUMAN,
   _COMPUTER,
@@ -345,7 +351,7 @@ const Locale = {
   skip: (g) => `Skipping ${g.turn} due to lack of move`,
   victory: (g) => `${g.rank.slice(-1)[0]} comes in ${Locale.ord(g.rank.length)}!`,
   continue: 'Click or <space> to continue',
-  final: (g) => `Final ranking: ${g.rank.map((e) => e.shortName).join(', ')}, ${g.players[0].shortName}`,
+  final: (g) => `Final ranking: ${g.rank.concat(g.players).map((e) => e.shortName).join(', ')}`,
   ranking: (g) => `Current ranking: ${g.rank.map((e) => e.shortName).join(', ')}`,
   paused: '- Game paused -',
   inHistory: '<ArrowUp> to return to current position',
@@ -358,11 +364,10 @@ class Config {
     Config.instance = this;
 
     // Map args
-    let asString = ['players'];
     let urlArgs = window.location.search == '' ? {} : window.location.search.slice(1)
     .split('&').map((e) => e.split('='))
     .reduce((a, e) => {
-      a[e[0]] = asString.indexOf(e[0]) != -1 ? e[1] : parseInt(e[1]);
+      a[e[0]] = e[0] == 'players' ? e[1].slice(0, 6).padEnd(6, '0') : parseInt(e[1]);
       return a;
     }, {});
 
@@ -385,8 +390,7 @@ class Config {
     this.rows = r;
 
     // Create players
-    this.players = this.args.players.slice(0, 6).padEnd(6, '2').split('')
-    .map((e, i) => new Player(this, i, parseInt(e)));
+    this.players = this.args.players.split('').map((e, i) => new Player(this, i, parseInt(e)));
     if (!Object.entries(oldArgs).every((e) => this.args[e[0]] == e[1])) {
       this._pushUrl();
     }
@@ -426,6 +430,10 @@ class Game {
     this.pauseRequested = false;
     this.moves = [];
     this.rank = [];
+    this.moveNodes = [];
+    this.hooks = {
+      onMoveNode: []
+    };
 
     this.players = config.players.filter((e) => e.type != _DISABLED);
     // Initialize units
@@ -486,8 +494,9 @@ class Game {
   computeMove() {
     if (this.state == 0)
       this.unpause();
-    let move = this.node(this.turn, {}, 0, 0);
-    this.pushMove(move.source, move.target);
+    let node = this.node(this.turn, {}, 0, 0);
+    this.pushMoveNode(node);
+    this.pushMove(node.source, node.target);
   }
 
   get isComputerTurn() { return this.turn.computer; }
@@ -516,6 +525,12 @@ class Game {
     this.unpause();
     this.nextTurn();
     this.board.turnElement.innerHTML = this.moves.length;
+  }
+
+  pushMoveNode(node) {
+    this.moveNodes.push(node);
+    for (let cb of this.hooks.onMoveNode)
+      cb(node);
   }
 
   pushMove(source, target) {
@@ -716,7 +731,7 @@ class Game {
 
   // Recursive AI decision node
   node(player, parent, depth, n) {
-    let node = {h: null, delta: 0, player, parent, n};
+    let node = {h: null, rh: Infinity, delta: 0, radialDelta: 0, player, parent, n};
     // Check for victory condition
     if (player.h <= this.config.h) {
       node.h = [0, 0, 0, 0, 0, 0];
@@ -731,7 +746,6 @@ class Game {
     }
     // Else recursively iterate over units, moves, players
     else {
-      node.rh = Infinity;
       let zeta = parent.h ? this._reduceH(parent.h, player) : -Infinity;
 
       // Determine h deltas for moves
@@ -744,7 +758,7 @@ class Game {
         let source = unit.cell;
         for (let target of this.getMoves(source)) {
           let delta = target.cubic.metric(player.goal) - unit.h - bonus;
-          let radius = target.cubic.metricFromOrigin();
+          let radialDelta = target.cubic.metricFromOrigin() - source.cubic.metricFromOrigin();
           if (delta < bestDelta) bestDelta = delta;
           moves.push({delta, source, target});
         }
@@ -752,7 +766,7 @@ class Game {
       // If there are no moves skip to next player at same depth
       // Skip pruning by omitting the parent
       if (moves.length == 0)
-        return this.node(player.next, {}, depth, ++this.n);
+        return this.node(player.next, {}, depth, ++node.n);
       // Otherwise iterate over moves
       for (let move of moves) {
         if (move.delta > bestDelta + this.config.skip)
@@ -763,8 +777,8 @@ class Game {
         target.setSubunit(unit);
 
         // Get child node
-        let child = this.node(player.next, node, depth + 1, ++this.n);
-        this.n = child.n;
+        let child = this.node(player.next, node, depth + 1, ++node.n);
+        node.n = child.n;
         let childRh;
         childRh = this._reduceH(child.h, player);
         // Check if best child node
@@ -773,13 +787,13 @@ class Game {
         if (
           childRh < node.rh ||
           childRh == node.rh && (move.delta < node.delta ||
-          move.delta == node.delta && (move.radius < node.radius ||
-          move.radius == node.radius && (Math.random() * 4) >>> 1
+          move.delta == node.delta && (move.radialDelta < node.radialDelta ||
+          move.radialDelta == node.radialDelta && (Math.random() * 4) >>> 1
         ))) {
           node.h = child.h;
           node.rh = childRh;
           node.delta = move.delta;
-          node.radius = move.radius;
+          node.radialDelta = move.radialDelta;
           node.child = child;
           node.source = source;
           node.target = target;
@@ -797,7 +811,9 @@ class Game {
   _reduceH(h, player) {
     let net = 0;
     for (let i = 0; i < 6; i++) {
-      net += i == player.dir ? h[i] : -h[i];
+      // This is substantially faster than + casting
+      let cur = i == player.dir ? 1 : 0;
+      net += (player.type + cur) * (cur ? h[i] : -h[i]);
     }
     return net;
   }
@@ -833,8 +849,9 @@ class Player {
 
   get unitClasses() {
     return [
-      'player-' + this.dir,
-      this.computer ? 'unit-computer' : 'unit-human'
+      'unit',
+      this.computer ? 'unit-computer' : 'unit-human',
+      'player-' + this.dir
     ];
   }
 
@@ -1131,7 +1148,7 @@ class Board {
   }
 
   displayModal(display) {
-    display = display != undefined ? display : !this.modal.classList.contains('show');
+    display = display != null ? display : !this.modal.classList.contains('show');
     if (display)
       this.modal.classList.add('show');
     else
@@ -1245,8 +1262,8 @@ class Board {
 }
 Board.BUTTON_CLASS_MAP = [
   'disabled',
-  'human',
-  'computer'
+  'computer',
+  'human'
 ];
 
 class Gesture {
@@ -1439,7 +1456,7 @@ class Cubic extends Array {
   metric(cubic) {
     return (
       Math.abs(this[0] - cubic[0]) + Math.abs(this[1] - cubic[1]) + Math.abs(this[2] - cubic[2])
-    ) / 2;
+    ) >>> 1;
   }
 
   metricFromOrigin() {
