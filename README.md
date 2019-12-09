@@ -21,9 +21,9 @@ Additional in-game options can be set via the keyboard, and — in a limited num
 - `<PgDown|ArrowDown>`: Go to beginning of game history. Really this is only here to provide symmetry with `<PgUp>`.
 - `<PgUp|ArrowUp>`: Return to latest position in game history.
 - `C`: Download current game as JSON file. The columns represent player direction (e.g. number counter-clockwise from bottom), source cubic (see below), target cubic, and a flag indicating whether the player won on that move.
-- `D`: Download full history of games played in the present session (i.e. since page was last reloaded).
-- `,`: Rotate board clockwise.
-- `.`: Rotate board counter-clockwise.
+- `H`: Download full history of games played in the present session (i.e. since page was last reloaded).
+- `,`: Rotate board counter-clockwise.
+- `.`: Rotate board clockwise.
 - `[1-9]`: Create new config with board size as given number and pushes to URL history. Settings do not take effect until next game is started. (This is presently the only URL parameter option available from the keyboard.)
 
 ## Parameters
@@ -38,7 +38,7 @@ The board size, &c. can be modified by appending parameters to the page URL in y
     - 2: Human
 - `depth`: AI parameter for max search depth. Default is 6, for one full rotation with all players.
 - `skip`: AI parameter representing score differential threshold at which a move will be discarded without further exploration. A lower number substantially increases speed on large boards. Numbers above ~5 are effectively meaningless. (Default is 1.)
-- `bonus`: AI parameter representing move score incentive for farthest back unit. (Default is 2.)
+- `bonus`: AI parameter representing move score incentive multiplier for farthest back unit(s). (Default is 2.)
 
 Some examples:
 
