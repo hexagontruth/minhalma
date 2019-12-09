@@ -6,7 +6,7 @@ A single-file Sternhalma (a.k.a. Star Halma a.k.a. "Chinese Checkers") game. Ada
 
 The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. The game pauses after every individual player wins. Play is resumed by pressing space, or by clicking anywhere on the board or page background. This continues until the penultimate player "wins," at which point the game is over. A new game can then be started by typing `N` or by clicking the page. Board size and player status (human, computer, or disabled) can be set in the configuration modal, accessible by clicking the plus sign in the upper right. Players can also be toggled between human and computer control by clicking the colored rectangles at the top of the page during a game. If a human player is converted to AI during its turn, the computer immediately takes the turn.
 
-Additional in-game options can be set via the keyboard, and — in a limited number of cases — via touch gesture. Further customization regarding number of units, AI settings, &c., can be affected through URL parameters.
+Additional in-game options can be set via the keyboard, and — in a limited number of cases — via touch gesture documented in the configuration modal. Further customization regarding number of units, AI settings, &c., can be affected through URL parameters.
 
 ## Keyboard shortcuts
 
