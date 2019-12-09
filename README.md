@@ -4,7 +4,7 @@ By Graham
 
 A single-file Sternhalma (a.k.a. Star Halma a.k.a. "Chinese Checkers") game. Adapted from a fairly underwhelming two-player version I wrote for a class project some years ago.
 
-The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. The game pauses after every individual player wins. Play is resumed by pressing space, or by clicking anywhere on the board or page background. This continues until the penultimate player "wins," at which point the game is over. A new game can then be started by typing `N` or by clicking the page. Board size and player status (human, computer, or disabled) can be set in the configuration modal, accessible by clicking the plus sign in the upper right. Players can also be toggled between human and computer control by clicking the colored rectangles at the top of the page during a game. If a human player is converted to AI during its turn, the computer immediately takes the turn.
+The game is principally played by clicking first on a unit and then on the cell you wish to move to. As is customary. The game pauses after every individual player wins. Play is resumed by pressing space, or by clicking or tapping the board. This continues until the penultimate player "wins," at which point the game is over. A new game can then be started by typing `N` or by double-clicking or double-tapping the board. Board size and player status (human, computer, or disabled) can be set in the configuration modal, accessible by clicking the plus sign in the upper right. Players can also be toggled between human and computer control by clicking the colored rectangles at the top of the page during a game. If a human player is converted to AI during its turn, the computer immediately takes the turn.
 
 Additional in-game options can be set via the keyboard, and — in a limited number of cases — via touch gesture documented in the configuration modal. Further customization regarding number of units, AI settings, &c., can be affected through URL parameters.
 
@@ -13,7 +13,6 @@ Additional in-game options can be set via the keyboard, and — in a limited num
 - `<space>`: Pause or unpause game. Required when a player has won, or the game history has been traversed between AI moves.
 - `N`: This will abruptly end the previous game and start a new one. Too bad.
 - `R`: Shows ranking of players who have already won the current game.
-- `S`: Return to default status message, which is fairly useless but tells you how many players are still playing.
 - `[+|h|?]`: Shows configuration modal and brief summary of important controls.
 - `U`: Undo. Only allowed on human move. Returns game to state before same player's last move, with the move counter, &c. reset to that state.
 - `<ArrowLeft>`: Go back one move in game history.

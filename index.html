@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-Minhalma v0.4.1
+Minhalma v0.4.2
 
 Copyright (c) 2019, Graham Steele
 
@@ -19,6 +19,7 @@ This software is provided as is, without warranty of any kind, express or implie
   box-sizing: border-box;
   border: 0; padding: 0; margin: 0;
   transition: all 100ms;
+  touch-action: none;
 }
 
 html,body {
@@ -351,10 +352,12 @@ const Locale = {
   skip: (g) => `Skipping ${g.turn} due to lack of move`,
   victory: (g) => `${g.rank.slice(-1)[0]} comes in ${Locale.ord(g.rank.length)}!`,
   continue: 'Click or <space> to continue',
-  final: (g) => `Final ranking: ${g.rank.concat(g.players).map((e) => e.shortName).join(', ')}`,
+  final: (g) =>
+    `Final ranking: ${g.rank.concat(g.players).map((e) => e.shortName).join(', ')}\nDouble-click for new game`,
   ranking: (g) => `Current ranking: ${g.rank.map((e) => e.shortName).join(', ')}`,
   paused: '- Game paused -',
   inHistory: '<ArrowUp> to return to current position',
+  undo: (g) => `Undo to move ${g.moves.length}`,
   debug: () => `Debugging mode ${Game.DEBUG ? 'enabled' : 'disabled'}`,
   ord: (n) => n + (['th', 'st', 'nd', 'rd'][n] || 'th')
 };
@@ -471,6 +474,7 @@ class Game {
       );
     }
     else {
+      this.board.display(Locale.inProgress);
       this.turn = this.turn.next;
       if (this.checkValidMoves()) {
         this.board.setCurrentPlayer(this.turn);
@@ -516,7 +520,6 @@ class Game {
   }
 
   unpause() {
-    this.board.display(Locale.inProgress);
     this.state = 1;
     this.board.svg.classList.remove('paused');
   }
@@ -667,6 +670,7 @@ class Game {
       }
       this.moveState = this.moves.length;
       this.board.turnElement.innerHTML = this.moveState;
+      this.board.display(Locale.undo);
     }
   }
 
@@ -688,10 +692,13 @@ class Game {
         if (this.isDone) {
           this.done();
         }
-        else if (this.isComputerTurn)
+        else if (this.isComputerTurn) {
           this.pause();
-        else
+        }
+        else {
+          this.board.display(Locale.inProgress);
           this.unpause();
+        }
       }
     }
   }
@@ -990,6 +997,7 @@ class Board {
     this.container = this.createElement(null, {class: 'container'}, parentContainer);
     this.svg = this.createSvgElement('svg', svgArgs, this.container);
     this.svg.addEventListener('click', (ev) => this.boardClick(ev));
+    this.svg.addEventListener('dblclick', (ev) => this.boardDblclick(ev));
     this.svg.addEventListener('touchstart', (ev) => this.processTouch(ev));
     this.svg.addEventListener('touchmove', (ev) => this.processTouch(ev));
     this.svg.addEventListener('touchend', (ev) => this.processTouch(ev));
@@ -1144,7 +1152,10 @@ class Board {
   boardClick(ev) {
     if (this.game.state == 0)
       this.game.start();
-    else if (this.game.state == -1)
+  }
+
+  boardDblclick(ev) {
+    if (this.game.state == -1)
       Game.new()
   }
 
@@ -1214,11 +1225,10 @@ class Board {
 
   processTouch(ev) {
     if (ev.type == 'touchstart') {
-      this.gesture = new Gesture(ev, this.wobbleGroup);
+      this.gesture = new Gesture(ev, this.wobbleGroup, this.gesture);
     }
     else if (ev.type == 'touchmove') {
       this.gesture.add(ev);
-      ev.preventDefault();
     }
     else {
       this.gesture.add(ev);
@@ -1238,7 +1248,7 @@ class Board {
       else if (this.gesture.get('down')) {
         this.game.downloadHistory();
       }
-      else if (this.gesture.get('down', 3)) {
+      else if (this.gesture.get('down', 3) || this.gesture.get('double-tap') && this.game.state == -1) {
         Game.new();
       }
       else if (this.gesture.get('delete')) {
@@ -1250,7 +1260,6 @@ class Board {
       else if (this.gesture.get('cw')) {
         this.rotate(1);
       }
-      this.gesture = null;
     }
 
   }
@@ -1280,9 +1289,6 @@ class Board {
       }
       else if (key == 'r') {
         this.display(Locale.ranking);
-      }
-      else if (key == 's') {
-        this.display(Locale.inProgress);
       }
       else if (key == '+' || key == '?') {
         // For now we will alias help to the options modal
@@ -1325,7 +1331,7 @@ Board.BUTTON_CLASS_MAP = [
 ];
 
 class Gesture {
-  constructor(ev, wobbler) {
+  constructor(ev, wobbler, last) {
     let touches = ev.changedTouches;
     this.wobbler = wobbler;
     this.touchMap = {};
@@ -1333,6 +1339,7 @@ class Gesture {
     this.timeStart = ev.timeStamp;
     this.time = 0;
     this.type = null;
+    this.last = last;
     for (let touch of touches) {
       let [x, y] = this._normalize(touch.pageX, touch.pageY);
       this.touchMap[touch.identifier] = {
@@ -1347,6 +1354,7 @@ class Gesture {
         path: [{x, y}],
         angle: [this._angle(x, y)],
         radius: [Math.sqrt(x * x + y * y)],
+        touchRadius: (touch.radiusX + touch.radiusY) / 2
       };
     }
   }
@@ -1384,9 +1392,6 @@ class Gesture {
   }
 
   compute() {
-    // Skip short or long touches
-    if (this.time < 100 || this.time > 2000) return;
-
     // Compute directional swipes
     let typeMap = Object.values(this.touchMap).map((touch) => {
       // Swipe horizontal
@@ -1402,6 +1407,17 @@ class Gesture {
           return 'up';
         else if (touch.deltaY > 100)
           return 'down';
+      }
+      // Tap
+      if (
+        Math.abs(touch.deltaX) < touch.touchRadius &&
+        Math.abs(touch.deltaY) < touch.touchRadius &&
+        this.time < 100
+      ) {
+        if (this.last && this.last.type == 'tap' && this.timeStart - this.last.timeStart < 500)
+          return 'double-tap'
+        else
+          return 'tap';
       }
       let startAngle = touch.angle[0];
       let endAngle = touch.angle.slice(-1)[0];
