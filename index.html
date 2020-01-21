@@ -742,7 +742,7 @@ class Game {
         str += '\n' + '  '.repeat(next == ']' ? level - 1 : level);
       }
     }
-    let blob = new Blob([str], {type: 'applicaton/json'});
+    let blob = new Blob([str], {type: 'application/json'});
     let a = this.board.createElement('a', {href: window.URL.createObjectURL(blob), download: filename});
     a.click();
   }
